@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>二选一世界杯 MarkChan糖点PK</title>
+<style>
+*{box-sizing:border-box}
+body{max-width:1000px;margin:20px auto;padding:0 16px;font-family:system-ui}
+.vs-box{display:flex;gap:30px;justify-content:center;margin:40px 0;align-items:center}
+.item{width:260px;padding:24px;border:1px solid #999;border-radius:10px;text-align:center;cursor:pointer;font-size:18px}
+.item:hover{background:#eef6ff;border-color:#4088ee}
+.info{text-align:center}
+.round{margin:12px 0;font-weight:bold;color:#225}
+.records{margin-top:30px;line-height:1.8}
+.rank-box{margin-top:20px;padding:16px;border:1px solid #ccc;border-radius:8px;text-align:left;max-height:400px;overflow-y:auto}
+#bgmBtn{
+    position: fixed;
+    top:15px;
+    right:15px;
+    padding:6px 12px;
+    border-radius:6px;
+    border:1px solid #666;
+    background:#fff;
+    cursor:pointer;
+}
+.btns-group{margin:10px 0;display:flex;gap:10px;justify-content:center}
+</style>
+</head>
+<body>
+<!-- 音频放最底部，不阻塞页面渲染！关键改动 -->
+<button id="bgmBtn" onclick="toggleBGM()" style="display:none;">🔊 播放BGM</button>
+
+<div class="info">
+<h2>二选一世界杯｜MarkChan糖点淘汰赛｜选择你更喜欢的糖点</h2>
+<div class="round" id="roundText"></div>
+<div class="vs-box">
+  <div class="item" id="p1" onclick="choose(0)"></div>
+  <span style="font-size:24px">VS</span>
+  <div class="item" id="p2" onclick="choose(1)"></div>
+</div>
+<div class="btns-group">
+    <button onclick="showResult()">查看本轮晋级名单</button>
+    <button onclick="showAllRank()">查看总排名</button>
+</div>
+<div class="records" id="resultBox"></div>
+<div class="rank-box" id="rankBox"></div>
+</div>
+
+<script>
+let list = [
+"billionaire",
+"+82 pressin",
+"马克破古西坡",
+"爱是圆圆的",
+"人生有三次机会",
+"和我去加拿大一个月",
+"六年级的初吻",
+"比起我的二十一岁，你的二十岁让我更有感触",
+"泡菜汤有点变成你了",
+"以后我们结婚了就住那里",
+"东赫是需要很多爱的孩子",
+"如果我是女生的话应该会暗恋哥很久",
+"今天格外想念马克哥",
+"李马克妈妈爸爸",
+"much love",
+"蜘蛛侠也有失手的时候",
+"我有一个秘密在迈阿密海滩",
+"429",
+"99%的可能坐马克哥旁边",
+"谢谢你，对不起，我爱你。",
+"喜欢楷灿还是东赫",
+"18年电台撒娇",
+"我的爱还依旧火热啊",
+"牵手祈祷",
+"机场牵手",
+"马克问楷灿为什么三天没说我爱你",
+"泡泡发的XOXO",
+"Goodbye summer",
+"楷灿的小腿很漂亮",
+"马克每天都会来班门口找东赫",
+"抓住同一根彩带",
+"抓着楷灿的手吃甜甜圈",
+"是东赫教会我怎么生气",
+"想被bobo到不能呼吸吗？",
+"天空很漂亮，楷灿也很漂亮",
+"舞台上牵手后偷笑的马克",
+"一起唱眼鼻嘴",
+"like the full sun",
+"济州岛爱的迫降",
+"孩子像我还是像马克哥？",
+"检讨书1",
+"检讨书2",
+"检讨书3",
+"检讨书4",
+"手机屏保是马克",
+"明明想吃炸酱面却还是陪你吃泡菜汤？",
+"更喜欢火锅还是泡菜汤？你怎么可以变心呢?",
+"想把马克哥的照片挂在房间里祈祷",
+"我们真的不和啊",
+"听见路人说泡菜汤愣住的马克",
+"工作不接电话的马克却接了楷灿的电话",
+"机场拥抱",
+"下次会带着楷灿一起回来的",
+"最后一句我爱你。",
+];
+let players = [...list];
+let nextRound = [];
+let matchIndex = 0;
+let currentPair = [];
+let roundNo = 1;
+let eliminatedList = [];
+
+// 音频后置创建，页面加载完再生成，不会阻塞渲染
+let bgMusic = null;
+const bgmBtn = document.getElementById('bgmBtn');
+
+// 初始化音频，失败不报错、不影响页面
+function initAudio(){
+    bgMusic = new Audio('bgm.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.3;
+    // 加载失败只隐藏按钮，页面正常使用
+    bgMusic.onerror = () => {
+        bgmBtn.style.display = 'none';
+        console.log("音乐文件不存在，BGM功能关闭");
+    }
+    bgMusic.oncanplay = () => {
+        bgmBtn.style.display = 'block';
+    }
+}
+
+function toggleBGM(){
+    if(!bgMusic) return;
+    if(bgMusic.paused){
+        bgMusic.play();
+        bgmBtn.innerText = "🔊 暂停BGM";
+    }else{
+        bgMusic.pause();
+        bgmBtn.innerText = "🔇 播放BGM";
+    }
+}
+
+// 页面点击解锁音频
+document.body.addEventListener('click', function unlockAudio(){
+    if(bgMusic){
+        bgMusic.play().catch(e=>{});
+    }
+    document.body.removeEventListener('click', unlockAudio);
+},{once:true});
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    let j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function buildMatch(){
+  players = shuffle(players);
+  nextRound = [];
+  matchIndex = 0;
+  loadNextMatch();
+}
+
+function loadNextMatch(){
+  if(matchIndex >= players.length){
+    players = nextRound;
+    if(players.length === 1){
+      document.getElementById("roundText").innerText = `🏆TOP1 冠军糖点：${players[0]}`;
+      document.querySelector(".vs-box").style.display="none";
+      showAllRank();
+      return;
+    }
+    roundNo++;
+    document.getElementById("roundText").innerText = `第${roundNo}轮｜剩余${players.length}个糖点`;
+    buildMatch();
+    return;
+  }
+  currentPair = [players[matchIndex], players[matchIndex+1]];
+  matchIndex += 2;
+  document.getElementById("p1").innerText = currentPair[0];
+  document.getElementById("p2").innerText = currentPair[1];
+}
+
+function choose(winIdx){
+    const loser = currentPair[1 - winIdx];
+    eliminatedList.unshift(loser);
+    nextRound.push(currentPair[winIdx]);
+    loadNextMatch();
+}
+
+function showResult(){
+  document.getElementById("resultBox").innerHTML =
+    `<b>本轮晋级糖点名单：</b><br>` + nextRound.join("<br>");
+}
+
+function showAllRank(){
+    const rankBox = document.getElementById("rankBox");
+    let html = "<h3>📊 糖点总排名</h3>";
+    if(players.length === 1){
+        html += `<p><b>第1名（冠军）：${players[0]}</b></p>`;
+    }
+    eliminatedList.forEach((item, idx)=>{
+        const rank = players.length === 1 ? idx + 2 : idx + 1;
+        html += `<p>第${rank}名：${item}</p>`;
+    })
+    rankBox.innerHTML = html;
+}
+
+document.getElementById("roundText").innerText = `第${roundNo}轮`;
+buildMatch();
+// 页面渲染完成后再加载音乐，不会空白
+window.addEventListener('load', initAudio);
+</script>
+</body>
+</html>
